@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional
 from ...core.exceptions import InferenceError
 from ...utils.logger import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger()
 
 
 def register_load_balanced_routes(app):

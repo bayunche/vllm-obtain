@@ -7,6 +7,7 @@
 import time
 import asyncio
 import threading
+import aiohttp
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
@@ -16,7 +17,7 @@ import random
 from src.utils.logger import get_logger
 from src.core.exceptions import InferenceError
 
-logger = get_logger(__name__)
+logger = get_logger()
 
 
 class BalanceStrategy(Enum):

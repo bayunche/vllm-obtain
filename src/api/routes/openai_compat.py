@@ -163,9 +163,25 @@ def chat_completions():
         if not isinstance(messages, list) or len(messages) == 0:
             return create_error_response("messages 必须是非空数组", "invalid_request_error")
         
+        # 将messages转换为prompt格式
+        prompt_parts = []
+        for message in messages:
+            role = message.get("role", "user")
+            content = message.get("content", "")
+            if role == "system":
+                prompt_parts.append(f"System: {content}")
+            elif role == "user":
+                prompt_parts.append(f"User: {content}")
+            elif role == "assistant":
+                prompt_parts.append(f"Assistant: {content}")
+        
+        prompt_parts.append("Assistant:")
+        prompt = "\n".join(prompt_parts)
+        
         # 构建推理请求
         request_obj = InferenceRequest(
             model_name=model_name,
+            prompt=prompt,
             messages=messages,
             max_tokens=data.get('max_tokens', 100),
             temperature=data.get('temperature', 0.7),
@@ -469,3 +485,8 @@ def rate_limit(error):
 def internal_error(error):
     """500 错误处理"""
     return create_error_response("内部服务器错误", "server_error", status_code=500)
+
+
+def register_openai_routes(app):
+    """注册OpenAI兼容路由"""
+    app.register_blueprint(openai_bp, url_prefix='/v1')

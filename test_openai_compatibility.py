@@ -11,7 +11,7 @@ import sys
 from typing import Dict, Any
 
 # 服务配置
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://127.0.0.1:8001"
 API_BASE = f"{BASE_URL}/v1"
 
 

@@ -15,10 +15,10 @@ from dataclasses import dataclass
 import psutil
 
 from src.utils.logger import get_logger
-from src.utils.config import Config
+from src.utils.config import InferenceConfig
 from src.core.load_balancer import LoadBalancer, BalanceStrategy
 
-logger = get_logger(__name__)
+logger = get_logger()
 
 
 @dataclass
@@ -41,7 +41,7 @@ class InstanceConfig:
 class ClusterManager:
     """集群管理器"""
     
-    def __init__(self, config: Config):
+    def __init__(self, config: InferenceConfig):
         self.config = config
         self.instances: Dict[str, InstanceConfig] = {}
         self.load_balancer = LoadBalancer(BalanceStrategy.ROUND_ROBIN)
@@ -364,7 +364,7 @@ class ClusterManager:
         return True
 
 
-def create_default_cluster(config: Config) -> ClusterManager:
+def create_default_cluster(config: InferenceConfig) -> ClusterManager:
     """创建默认集群配置"""
     cluster_manager = ClusterManager(config)
     

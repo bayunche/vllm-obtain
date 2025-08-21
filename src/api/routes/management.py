@@ -187,12 +187,63 @@ def load_model():
         }), 500
 
 
-@management_bp.route('/models/<model_name>/unload', methods=['DELETE'])
+@management_bp.route('/models/unload', methods=['POST'])
+@api_monitor
+def unload_model_by_name():
+    """
+    卸载模型 (通过请求体指定模型名)
+    POST /v1/models/unload
+    """
+    try:
+        manager = get_model_manager()
+        if not manager:
+            return jsonify({
+                "error": "模型管理器未初始化"
+            }), 503
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "error": "请求体不能为空"
+            }), 400
+        
+        model_name = data.get('model_name')
+        if not model_name:
+            return jsonify({
+                "error": "缺少必需参数: model_name"
+            }), 400
+        
+        # 执行卸载
+        loop = get_event_loop()
+        success = run_async_in_thread(
+            manager.unload_model(model_name), loop
+        )
+        
+        if success:
+            return jsonify({
+                "message": f"模型卸载成功: {model_name}",
+                "model_name": model_name,
+                "status": "unloaded"
+            })
+        else:
+            return jsonify({
+                "error": f"模型卸载失败: {model_name}"
+            }), 500
+        
+    except Exception as e:
+        current_app.config['LOGGER'].error(f"模型卸载失败: {e}")
+        return jsonify({
+            "error": str(e)
+        }), 500
+
+
+@management_bp.route('/models/<model_name>/unload', methods=['DELETE', 'POST'])
 @api_monitor
 def unload_model(model_name):
     """
-    卸载模型
+    卸载模型 (通过URL路径指定模型名)
     DELETE /v1/models/{model_name}/unload
+    POST /v1/models/{model_name}/unload
     """
     try:
         manager = get_model_manager()
@@ -373,3 +424,8 @@ def get_recent_logs():
         return jsonify({
             "error": str(e)
         }), 500
+
+
+def register_management_routes(app):
+    """注册管理路由"""
+    app.register_blueprint(management_bp, url_prefix='/v1')

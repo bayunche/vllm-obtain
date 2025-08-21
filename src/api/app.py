@@ -40,9 +40,15 @@ def create_app(config=None):
     app.config['EVENT_LOOP'] = None
     app.config['LOOP_THREAD'] = None
     
-    @app.before_first_request
+    # 用于追踪是否已初始化
+    _initialized = [False]
+    
     def initialize_services():
         """初始化服务"""
+        if _initialized[0]:
+            return
+        _initialized[0] = True
+        
         try:
             logger.info("初始化 Flask 应用服务")
             
@@ -78,6 +84,9 @@ def create_app(config=None):
     @app.before_request
     def before_request():
         """请求前处理"""
+        # 确保服务已初始化（只在第一次请求时执行）
+        initialize_services()
+        
         g.start_time = time.time()
         g.request_id = f"req_{int(time.time() * 1000)}_{id(request)}"
         
