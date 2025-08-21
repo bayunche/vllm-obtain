@@ -13,7 +13,7 @@ from ..utils import get_config, setup_logger, get_logger, api_monitor
 from ..core.model_manager import get_model_manager
 
 
-def create_app(config=None):
+def create_app(config=None, **kwargs):
     """创建 Flask 应用"""
     app = Flask(__name__)
     
@@ -226,12 +226,17 @@ def run_async_in_thread(coro, loop):
 app = None
 
 
-def get_app(config=None):
+def get_app(*args, **kwargs):
     """获取应用实例"""
     global app
     if app is None:
-        app = create_app(config)
+        # 如果只有一个参数且是配置对象，使用它
+        config = args[0] if len(args) == 1 and not isinstance(args[0], str) else None
+        app = create_app(config, **kwargs)
     return app
+
+# 创建WSGI应用实例
+application = get_app()
 
 
 if __name__ == '__main__':

@@ -1,0 +1,83 @@
+# VLLM 跨平台推理服务 - Linux 依赖文件
+# 支持 NVIDIA GPU (CUDA) 和 AMD GPU (ROCm) 
+
+# 核心框架
+flask==3.1.2
+flask-cors==6.0.1
+gunicorn==23.0.0
+gevent==25.5.1
+
+# VLLM 推理引擎 (CUDA/ROCm 专用)
+vllm>=0.6.0  # 主要推理引擎
+# 或者: vllm[rocm]  # AMD ROCm版本
+torch>=2.0.0  # PyTorch GPU版本
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# CUDA 工具包依赖 (NVIDIA GPU)
+# 注意: 需要预先安装 CUDA 11.8+ 或 12.0+
+# nvidia-cuda-runtime-cu12
+# nvidia-cudnn-cu12
+
+# llama.cpp 后备引擎
+llama-cpp-python>=0.3.0
+
+# 配置和环境
+python-dotenv==1.0.1
+pydantic==2.10.6
+pydantic-settings==2.7.3
+
+# 日志系统
+loguru==0.7.3
+
+# 系统监控
+psutil==6.2.1
+nvidia-ml-py3==7.352.0  # NVIDIA GPU监控
+
+# HTTP客户端
+requests==2.32.3
+httpx==0.28.0
+aiohttp==3.12.15
+
+# 数据处理
+numpy>=1.24.0
+tokenizers>=0.20.0
+transformers>=4.45.0
+sentencepiece>=0.2.0
+
+# HuggingFace集成
+huggingface-hub>=0.26.0
+datasets>=3.2.0
+
+# 异步支持
+asyncio-mqtt==0.14.1
+anyio==4.10.0
+
+# 性能加速
+accelerate>=1.2.0
+optimum>=1.24.0
+
+# 测试工具
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-benchmark==4.0.0
+
+# 开发工具
+black==24.10.0
+isort==5.13.2
+mypy==1.14.0
+
+# 生产部署
+supervisor==4.2.6
+redis==5.2.1  # 可选: 缓存系统
+celery==5.4.0  # 可选: 任务队列
+
+# Linux 系统特定
+prctl==1.8.2  # 进程控制
+
+# 安装说明:
+# 1. Ubuntu/Debian: sudo apt update && sudo apt install -y python3-dev build-essential
+# 2. CentOS/RHEL: sudo yum groupinstall -y "Development Tools" && sudo yum install -y python3-devel
+# 3. NVIDIA GPU: 需要安装 CUDA Toolkit 和 cuDNN
+# 4. AMD GPU: 需要安装 ROCm 运行时
+# 5. 大内存建议: 32GB+ RAM 用于大模型推理

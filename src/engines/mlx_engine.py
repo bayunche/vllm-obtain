@@ -172,17 +172,13 @@ class MlxEngine(InferenceEngine):
             def _generate():
                 start_time = time.time()
                 
-                # 设置生成参数
-                generate_kwargs = {
-                    "temp": request.temperature,
-                    "top_p": request.top_p,
-                    "max_tokens": request.max_tokens,
-                    "verbose": False
-                }
-                
-                # 执行生成
+                # 使用基础的MLX generate函数（不带参数）
                 response = self.mlx_generate(
-                    model, tokenizer, prompt, **generate_kwargs
+                    model, 
+                    tokenizer, 
+                    prompt,
+                    max_tokens=request.max_tokens,
+                    verbose=False
                 )
                 
                 inference_time = time.time() - start_time
@@ -192,14 +188,16 @@ class MlxEngine(InferenceEngine):
             
             # 计算token统计
             prompt_tokens = len(tokenizer.encode(prompt))
-            completion_tokens = len(tokenizer.encode(response_text)) - prompt_tokens
+            # 只计算生成的部分
+            generated_text = response_text[len(prompt):] if response_text.startswith(prompt) else response_text
+            completion_tokens = len(tokenizer.encode(generated_text))
             total_tokens = prompt_tokens + completion_tokens
             
             tokens_per_second = completion_tokens / inference_time if inference_time > 0 else 0
             
             response = InferenceResponse(
                 model_name=request.model_name,
-                text=response_text[len(prompt):],  # 移除prompt部分
+                text=generated_text,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens,
@@ -238,14 +236,12 @@ class MlxEngine(InferenceEngine):
             
             def _stream_generate():
                 # 使用 MLX 的流式生成 API
-                from mlx_lm.utils import stream_generate
+                from mlx_lm.generate import stream_generate
                 
                 return stream_generate(
                     model, 
                     tokenizer, 
                     prompt,
-                    temp=request.temperature,
-                    top_p=request.top_p,
                     max_tokens=request.max_tokens
                 )
             

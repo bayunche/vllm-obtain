@@ -1,0 +1,61 @@
+# VLLM 跨平台推理服务 - macOS 依赖文件
+# 专为 Apple Silicon (M1/M2/M3/M4) 优化
+
+# 核心框架
+flask==3.1.2
+flask-cors==6.0.1
+gunicorn==23.0.0
+gevent==25.5.1
+
+# MLX 推理引擎 (Apple Silicon 专用)
+mlx>=0.28.0
+mlx-lm>=0.20.0
+
+# 配置和环境
+python-dotenv==1.0.1
+pydantic==2.10.6
+pydantic-settings==2.7.3
+
+# 日志系统
+loguru==0.7.3
+
+# 系统监控
+psutil==6.2.1
+
+# HTTP客户端
+requests==2.32.3
+httpx==0.28.0
+aiohttp==3.12.15
+
+# 数据处理
+numpy>=1.24.0
+torch>=2.0.0  # PyTorch for Mac
+tokenizers>=0.20.0
+transformers>=4.45.0
+
+# 模型下载 (ModelScope国内镜像)
+modelscope>=1.20.0
+
+# 异步支持
+asyncio-mqtt==0.14.1
+anyio==4.10.0
+
+# 测试工具 (可选)
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-benchmark==4.0.0
+
+# 开发工具 (可选)
+black==24.10.0
+isort==5.13.2
+mypy==1.14.0
+
+# 生产部署
+supervisor==4.2.6  # 进程管理
+nginx-python==1.2.0  # Nginx配置
+
+# 注意事项:
+# 1. MLX只支持Apple Silicon，在Intel Mac上会回退到CPU
+# 2. 确保macOS版本 >= 13.0
+# 3. 推荐使用Homebrew安装系统依赖
+# 4. 某些包可能需要从源码编译，请确保有足够存储空间
