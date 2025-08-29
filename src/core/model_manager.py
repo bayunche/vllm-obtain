@@ -68,7 +68,7 @@ class ModelManager:
             if engine_type == "auto":
                 engine_type = get_optimal_engine()
             
-            self.logger.info(f"使用推理引擎: {engine_type}")
+            self.logger.info(f"尝试使用推理引擎: {engine_type}")
             
             # 创建引擎配置
             engine_config = EngineConfig(
@@ -80,12 +80,33 @@ class ModelManager:
                 enable_streaming=True
             )
             
-            # 创建并初始化主引擎
-            main_engine = create_engine(engine_type, engine_config)
-            success = await main_engine.initialize()
+            # 创建并初始化主引擎，支持自动回退
+            main_engine = None
+            engines_to_try = [engine_type]
             
-            if not success:
-                self.logger.error(f"主引擎初始化失败: {engine_type}")
+            # 添加回退选项
+            if engine_type != 'llama_cpp':
+                engines_to_try.append('llama_cpp')  # 总是回退到 llama.cpp
+            
+            for try_engine in engines_to_try:
+                try:
+                    self.logger.info(f"尝试初始化引擎: {try_engine}")
+                    engine_config.engine_type = try_engine
+                    main_engine = create_engine(try_engine, engine_config)
+                    success = await main_engine.initialize()
+                    
+                    if success:
+                        self.logger.info(f"成功初始化引擎: {try_engine}")
+                        engine_type = try_engine
+                        break
+                    else:
+                        self.logger.warning(f"引擎初始化失败: {try_engine}")
+                except Exception as e:
+                    self.logger.warning(f"创建引擎失败 {try_engine}: {e}")
+                    continue
+            
+            if main_engine is None or not success:
+                self.logger.error("所有引擎都初始化失败")
                 return False
             
             self.engines[engine_type] = main_engine

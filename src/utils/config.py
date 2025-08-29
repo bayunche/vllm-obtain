@@ -4,6 +4,7 @@
 """
 
 import os
+import platform
 from pathlib import Path
 from typing import Optional, List, Any, Dict
 from pydantic import Field, validator
@@ -70,10 +71,15 @@ class InferenceConfig(BaseSettings):
     @validator("inference_engine")
     def validate_inference_engine(cls, v):
         """验证推理引擎选择"""
-        valid_engines = ["auto", "vllm", "mlx", "llama_cpp"]
-        if v not in valid_engines:
-            raise ValueError(f"推理引擎必须是 {valid_engines} 中的一个")
-        return v
+        valid_engines = ["auto", "vllm", "mlx", "llama_cpp", "llamacpp"]
+        v_lower = v.lower()
+        if v_lower not in valid_engines:
+            logger.warning(f"无效的推理引擎: {v}，使用 auto")
+            return "auto"
+        # 统一引擎名称
+        if v_lower == "llamacpp":
+            return "llama_cpp"
+        return v_lower
     
     @validator("inference_mode")
     def validate_inference_mode(cls, v):
@@ -119,6 +125,47 @@ class InferenceConfig(BaseSettings):
         """验证最大并发模型数"""
         if v < 1:
             raise ValueError("最大并发模型数必须大于0")
+        return v
+    
+    @validator("workers", pre=False)
+    def validate_workers_for_platform(cls, v, values):
+        """根据平台和引擎验证 worker 数量"""
+        # 获取推理引擎
+        engine = values.get('inference_engine', 'auto')
+        
+        # macOS 上使用 MLX 引擎时必须为 1
+        if engine == 'mlx' and v > 1:
+            logger.warning("MLX 引擎仅支持单 worker，将自动设置为 1")
+            return 1
+        
+        # Windows 上建议较少的 worker 数量
+        if platform.system() == 'Windows' and v > 4:
+            logger.warning(f"Windows 平台建议使用较少的 worker 数量，当前设置为 {v}")
+        
+        return v
+    
+    @validator("model_base_path", "model_cache_dir", pre=True)
+    def normalize_paths(cls, v):
+        """标准化路径，处理跨平台路径分隔符"""
+        if isinstance(v, str):
+            # 转换为 Path 对象，自动处理平台差异
+            path = Path(v)
+            # 使用绝对路径
+            if not path.is_absolute():
+                path = path.resolve()
+            return str(path)
+        return v
+    
+    @validator("log_file", pre=True)
+    def normalize_log_path(cls, v):
+        """标准化日志文件路径"""
+        if isinstance(v, str):
+            path = Path(v)
+            if not path.is_absolute():
+                path = path.resolve()
+            # 确保父目录存在
+            path.parent.mkdir(parents=True, exist_ok=True)
+            return str(path)
         return v
     
     @validator("port")
@@ -175,13 +222,27 @@ class ConfigManager:
                 else:
                     logger.warning(f"配置文件不存在: {config_file}")
             else:
-                # 尝试加载默认的.env文件
-                env_files = [".env", ".env.local"]
-                for env_file in env_files:
-                    if os.path.exists(env_file):
-                        load_dotenv(env_file)
-                        logger.info(f"已加载默认配置文件: {env_file}")
-                        break
+                # 根据平台选择默认配置文件
+                system = platform.system().lower()
+                platform_env_map = {
+                    'darwin': '.env.mac',
+                    'linux': '.env.linux',
+                    'windows': '.env.windows'
+                }
+                
+                # 优先加载平台特定配置
+                platform_env = platform_env_map.get(system)
+                if platform_env and os.path.exists(platform_env):
+                    load_dotenv(platform_env)
+                    logger.info(f"已加载平台特定配置文件: {platform_env}")
+                else:
+                    # 尝试加载默认的.env文件
+                    env_files = [".env", ".env.local"]
+                    for env_file in env_files:
+                        if os.path.exists(env_file):
+                            load_dotenv(env_file)
+                            logger.info(f"已加载默认配置文件: {env_file}")
+                            break
             
             # 创建配置实例
             try:
