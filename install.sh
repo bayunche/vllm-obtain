@@ -99,6 +99,28 @@ detect_platform() {
             PLATFORM_NAME="${LINUX} Linux CPU"
         fi
         
+    elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "win32" ]]; then
+        OS="windows"
+        print_success "操作系统: Windows"
+        
+        # Windows GPU 检测
+        if command -v nvidia-smi &> /dev/null; then
+            if nvidia-smi &> /dev/null; then
+                GPU_INFO=$(nvidia-smi --query-gpu=name --format=csv,noheader,nounits | head -n1)
+                print_success "NVIDIA GPU: $GPU_INFO"
+                PLATFORM="windows_cuda"
+                PLATFORM_NAME="💻 Windows NVIDIA GPU"
+            else
+                print_warning "NVIDIA 驱动未正确安装"
+                PLATFORM="windows_cpu"
+                PLATFORM_NAME="💻 Windows CPU"
+            fi
+        else
+            print_info "未检测到GPU，使用CPU模式"
+            PLATFORM="windows_cpu"
+            PLATFORM_NAME="💻 Windows CPU"
+        fi
+        
     else
         print_warning "未知操作系统，使用通用CPU配置"
         OS="unknown"
@@ -150,7 +172,7 @@ setup_venv() {
     
     # 更新 pip
     print_info "更新 pip..."
-    pip install --upgrade pip > /dev/null 2>&1
+    pip install --upgrade pip setuptools wheel > /dev/null 2>&1
     
     print_success "虚拟环境创建完成"
 }
@@ -159,41 +181,176 @@ setup_venv() {
 install_dependencies() {
     print_header "\n⚙️ 安装平台特定依赖"
     
+    # 首先安装基础依赖
+    print_info "安装基础依赖..."
+    pip install --upgrade pip setuptools wheel > /dev/null 2>&1
+    
+    # 安装核心框架
+    print_info "安装核心框架..."
+    pip install flask flask-cors python-dotenv pydantic pydantic-settings loguru psutil requests numpy transformers tokenizers --timeout 600
+    
+    # 根据平台安装特定依赖
     case $PLATFORM in
         "mac_silicon")
             print_info "安装 macOS Apple Silicon 专用依赖..."
+            
+            # 尝试安装 MLX
+            print_info "尝试安装 MLX 引擎..."
+            pip install mlx mlx-lm 2>/dev/null && print_success "MLX 安装成功" || print_warning "MLX 安装失败，将使用 llama.cpp"
+            
+            # 安装 llama.cpp 作为后备
+            print_info "安装 llama.cpp 后备引擎..."
+            pip install llama-cpp-python --timeout 600
+            
+            # 安装其他依赖
+            print_info "安装其他必需组件..."
+            pip install huggingface-hub safetensors modelscope --timeout 300 2>/dev/null || print_warning "部分组件安装失败"
+            
             if [[ -f "requirements-mac.txt" ]]; then
-                pip install -r requirements-mac.txt
-                print_success "macOS 依赖安装完成"
-            else
-                print_warning "未找到 requirements-mac.txt，使用通用依赖"
-                pip install -r requirements.txt
+                print_info "安装 macOS 其他依赖..."
+                pip install -r requirements-mac.txt --timeout 300 2>/dev/null || print_warning "部分依赖安装失败"
             fi
+            print_success "macOS 依赖安装完成"
+            ;;
+            
+        "mac_intel")
+            print_info "安装 macOS Intel 专用依赖..."
+            
+            # Intel Mac 不支持 MLX，直接使用 llama.cpp
+            print_info "安装 llama.cpp 引擎..."
+            pip install llama-cpp-python --timeout 600
+            
+            # 安装基础依赖
+            pip install torch transformers tokenizers safetensors huggingface-hub modelscope --timeout 600
+            print_success "macOS Intel 依赖安装完成"
             ;;
             
         "linux_cuda")
             print_info "安装 Linux NVIDIA GPU 专用依赖..."
+            
+            # 安装 PyTorch CUDA 版本
+            print_info "安装 PyTorch (CUDA)..."
+            pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --timeout 600
+            
+            # 尝试安装 VLLM
+            print_info "尝试安装 VLLM 引擎..."
+            pip install vllm 2>/dev/null && print_success "VLLM 安装成功" || print_warning "VLLM 安装失败，将使用 llama.cpp"
+            
+            # 安装 llama.cpp 作为后备
+            print_info "安装 llama.cpp 后备引擎..."
+            CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python --timeout 600
+            
+            # 安装其他必需组件
+            print_info "安装其他必需组件..."
+            pip install huggingface-hub safetensors modelscope nvidia-ml-py3 --timeout 300 2>/dev/null || print_warning "部分组件安装失败"
+            
+            # 安装其他依赖
             if [[ -f "requirements-linux.txt" ]]; then
-                pip install -r requirements-linux.txt
-                print_success "Linux GPU 依赖安装完成"
-            else
-                pip install -r requirements.txt
-                print_success "通用依赖安装完成"
+                print_info "安装 Linux 其他依赖..."
+                pip install -r requirements-linux.txt --timeout 600 2>/dev/null || print_warning "部分依赖安装失败"
             fi
+            print_success "Linux GPU 依赖安装完成"
             ;;
             
         "linux_rocm")
             print_info "安装 Linux AMD GPU 专用依赖..."
-            pip install -r requirements.txt
-            print_warning "ROCm 支持需要手动配置"
+            
+            # 安装 PyTorch ROCm 版本
+            print_info "安装 PyTorch (ROCm)..."
+            pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.6 --timeout 600
+            
+            # 安装 llama.cpp
+            print_info "安装 llama.cpp 引擎..."
+            pip install llama-cpp-python --timeout 600
+            
+            # 安装基础依赖
+            pip install transformers tokenizers safetensors huggingface-hub modelscope --timeout 600
+            print_warning "ROCm 支持需要手动配置 VLLM"
+            print_info "请参考: https://docs.vllm.ai/en/latest/getting_started/amd-installation.html"
+            print_success "Linux AMD GPU 依赖安装完成"
+            ;;
+            
+        "windows_cuda")
+            print_info "安装 Windows NVIDIA GPU 专用依赖..."
+            
+            # 安装 PyTorch CUDA 版本 (Windows)
+            print_info "安装 PyTorch (CUDA for Windows)..."
+            pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --timeout 600
+            
+            # 安装 llama.cpp (主要引擎)
+            print_info "安装 llama.cpp 引擎..."
+            pip install llama-cpp-python --timeout 600
+            
+            # Windows 特定组件
+            print_info "安装 Windows 特定组件..."
+            pip install waitress pywin32 wmi --timeout 300 2>/dev/null || print_warning "部分 Windows 组件安装失败"
+            
+            # 安装其他必需组件
+            print_info "安装其他必需组件..."
+            pip install huggingface-hub safetensors modelscope --timeout 300 2>/dev/null || print_warning "部分组件安装失败"
+            
+            # 安装其他依赖
+            if [[ -f "requirements-windows.txt" ]]; then
+                print_info "安装 Windows 其他依赖..."
+                pip install -r requirements-windows.txt --timeout 600 2>/dev/null || print_warning "部分依赖安装失败"
+            fi
+            print_success "Windows GPU 依赖安装完成"
+            ;;
+            
+        "windows_cpu"|"linux_cpu"|"generic_cpu")
+            print_info "安装通用 CPU 依赖..."
+            
+            # 安装 PyTorch CPU 版本
+            print_info "安装 PyTorch (CPU)..."
+            pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu --timeout 600
+            
+            # 安装 llama.cpp
+            print_info "安装 llama.cpp 引擎..."
+            pip install llama-cpp-python --timeout 600
+            
+            # Windows 特定组件 (如果是 Windows)
+            if [[ "$OS" == "windows" ]]; then
+                print_info "安装 Windows 特定组件..."
+                pip install waitress pywin32 wmi --timeout 300 2>/dev/null || print_warning "部分 Windows 组件安装失败"
+                
+                if [[ -f "requirements-windows.txt" ]]; then
+                    print_info "安装 Windows 其他依赖..."
+                    pip install -r requirements-windows.txt --timeout 600 2>/dev/null || print_warning "部分依赖安装失败"
+                fi
+            fi
+            
+            # 安装基础依赖
+            pip install transformers tokenizers safetensors huggingface-hub modelscope --timeout 600
+            print_success "通用依赖安装完成"
             ;;
             
         *)
-            print_info "安装通用CPU依赖..."
-            pip install -r requirements.txt
+            print_info "安装通用依赖..."
+            pip install -r requirements.txt --timeout 600
             print_success "通用依赖安装完成"
             ;;
     esac
+    
+    # 安装测试和开发工具（必需用于兼容性测试）
+    print_info "安装测试工具..."
+    pip install pytest pytest-asyncio pytest-cov pytest-benchmark || print_warning "测试工具安装失败"
+    
+    # 安装服务器组件
+    print_info "安装服务器组件..."
+    pip install gunicorn gevent waitress || print_warning "服务器组件安装失败"
+    
+    # 安装异步支持包（测试需要）
+    print_info "安装异步支持包..."
+    pip install asyncio-mqtt anyio httpx aiohttp || print_warning "异步包安装失败"
+    
+    # 运行依赖检查
+    print_header "\n🔍 依赖检查"
+    if [[ -f "check_dependencies.py" ]]; then
+        print_info "运行依赖检查脚本..."
+        $PYTHON_CMD check_dependencies.py 2>/dev/null || print_warning "依赖检查发现问题，但安装已完成"
+    else
+        print_warning "未找到依赖检查脚本"
+    fi
 }
 
 # 配置环境
@@ -215,6 +372,16 @@ setup_config() {
             if [[ -f ".env.linux" ]]; then
                 cp .env.linux .env
                 print_success "使用 Linux 专用配置"
+            else
+                cp .env.example .env 2>/dev/null || true
+                print_info "使用默认配置"
+            fi
+            ;;
+            
+        "windows_cuda"|"windows_cpu")
+            if [[ -f ".env.windows" ]]; then
+                cp .env.windows .env
+                print_success "使用 Windows 专用配置"
             else
                 cp .env.example .env 2>/dev/null || true
                 print_info "使用默认配置"
@@ -271,38 +438,128 @@ except Exception as e:
 verify_installation() {
     print_header "\n🧪 验证安装"
     
-    print_info "检查 Python 包导入..."
+    print_info "检查核心依赖..."
     
     # 基础包检查
     $PYTHON_CMD -c "
-import flask, requests, psutil
-print('✅ 基础依赖导入成功')
-" 2>/dev/null || print_error "基础依赖导入失败"
+import sys
+failed = []
+packages = [
+    ('flask', 'Flask'),
+    ('requests', 'Requests'),
+    ('psutil', 'PSUtil'),
+    ('pydantic', 'Pydantic'),
+    ('loguru', 'Loguru'),
+    ('numpy', 'NumPy')
+]
+
+for import_name, display_name in packages:
+    try:
+        __import__(import_name)
+        print(f'✅ {display_name} 导入成功')
+    except ImportError:
+        print(f'❌ {display_name} 导入失败')
+        failed.append(display_name)
+
+if failed:
+    print(f'⚠️ 缺失依赖: {', '.join(failed)}')
+    sys.exit(1)
+else:
+    print('✅ 所有基础依赖导入成功')
+" || print_error "基础依赖检查失败"
     
-    # 平台特定包检查
-    case $PLATFORM in
-        "mac_silicon"|"mac_intel")
-            $PYTHON_CMD -c "
+    # 推理引擎检查
+    print_info "检查推理引擎..."
+    $PYTHON_CMD -c "
+import platform
+
+# 检查 llama.cpp (通用后备)
 try:
-    import mlx.core as mx
-    print('✅ MLX 引擎可用')
+    import llama_cpp
+    print('✅ llama.cpp 引擎可用')
+    llama_available = True
 except ImportError:
-    print('⚠️ MLX 引擎不可用，将使用 CPU 模式')
-" 2>/dev/null
-            ;;
-            
-        "linux_cuda")
-            $PYTHON_CMD -c "
+    print('❌ llama.cpp 引擎不可用')
+    llama_available = False
+
+# 检查平台特定引擎
+system = platform.system().lower()
+machine = platform.machine().lower()
+
+if system == 'darwin' and ('arm64' in machine or 'aarch64' in machine):
+    # macOS Apple Silicon - 检查 MLX
+    try:
+        import mlx.core as mx
+        import mlx_lm
+        print('✅ MLX 引擎可用 (Apple Silicon 优化)')
+    except ImportError:
+        print('⚠️ MLX 引擎不可用，将使用 llama.cpp')
+
+elif system in ['linux', 'windows']:
+    # Linux/Windows - 检查 CUDA 和 VLLM
+    try:
+        import torch
+        cuda_available = torch.cuda.is_available()
+        if cuda_available:
+            print(f'✅ PyTorch CUDA 可用 (GPU: {torch.cuda.get_device_name(0)})')
+        else:
+            print('⚠️ CUDA 不可用，将使用 CPU 模式')
+    except ImportError:
+        print('⚠️ PyTorch 未安装')
+    
+    try:
+        import vllm
+        print('✅ VLLM 引擎可用')
+    except ImportError:
+        print('⚠️ VLLM 引擎不可用，将使用 llama.cpp')
+
+# 确保至少有一个引擎可用
+if not llama_available:
+    print('❌ 错误：没有可用的推理引擎！')
+    import sys
+    sys.exit(1)
+" || print_warning "推理引擎检查发现问题"
+    
+    # 测试脚本检查
+    print_info "检查测试脚本..."
+    if [[ -f "test_compatibility_report.py" ]]; then
+        print_success "找到兼容性测试脚本"
+        
+        # 尝试导入测试脚本依赖
+        $PYTHON_CMD -c "
 try:
-    import torch
-    print(f'✅ PyTorch 可用，CUDA: {torch.cuda.is_available()}')
-    if torch.cuda.is_available():
-        print(f'GPU 数量: {torch.cuda.device_count()}')
-except ImportError:
-    print('⚠️ PyTorch 不可用')
-" 2>/dev/null
-            ;;
-    esac
+    import asyncio
+    import statistics
+    import threading
+    import concurrent.futures
+    from datetime import datetime
+    from typing import Dict, List, Any
+    print('✅ 测试脚本基础依赖检查通过')
+except ImportError as e:
+    print(f'⚠️ 测试脚本依赖缺失: {e}')
+    
+# 检查项目特定模块
+try:
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent))
+    from src.utils.platform_detector import PlatformDetector
+    from src.utils.config import ConfigManager
+    print('✅ 项目模块导入成功')
+except ImportError as e:
+    print(f'⚠️ 项目模块导入失败: {e}')
+" 2>/dev/null || print_warning "测试脚本依赖检查失败"
+    else
+        print_warning "未找到 test_compatibility_report.py"
+        print_info "请确保测试脚本存在于项目根目录"
+    fi
+    
+    # 检查运行测试脚本
+    if [[ -f "run_tests.sh" ]]; then
+        print_success "找到测试运行器 run_tests.sh"
+    else
+        print_warning "未找到 run_tests.sh"
+    fi
     
     print_success "安装验证完成"
 }
@@ -331,11 +588,20 @@ show_next_steps() {
     esac
     
     echo ""
-    echo -e "  ${CYAN}3. 验证服务:${NC}"
+    echo -e "  ${CYAN}3. 运行完整测试（生成HTML报告）:${NC}"
+    echo -e "     ./run_tests.sh  ${GREEN}# 推荐：完整测试流程${NC}"
+    echo -e "     python test_compatibility_report.py  ${BLUE}# 直接运行测试${NC}"
+    echo ""
+    echo -e "  ${CYAN}4. 验证服务:${NC}"
     echo -e "     curl http://localhost:8001/health"
     echo ""
-    echo -e "  ${CYAN}4. OpenAI 兼容测试:${NC}"
-    echo -e "     python test_openai_compatibility.py"
+    echo -e "  ${CYAN}5. OpenAI 兼容测试:${NC}"
+    echo -e "     python scripts/tests/test_openai_compatibility.py"
+    echo ""
+    echo -e "  ${PURPLE}📋 测试流程说明:${NC}"
+    echo -e "     1. ./run_tests.sh 会自动运行依赖检查 -> 兼容性测试 -> 生成HTML报告"
+    echo -e "     2. 测试报告包含: 平台信息、性能测试、Qwen3-7B 并发测试"
+    echo -e "     3. HTML报告文件格式: compatibility_report_YYYYMMDD_HHMMSS.html"
     
     echo -e "\n${PURPLE}🔗 访问地址:${NC}"
     echo -e "  • 服务地址: ${BOLD}http://localhost:8001${NC}"
@@ -360,6 +626,18 @@ show_next_steps() {
             echo -e "  • 服务器: ${BOLD}Gunicorn + Gevent${NC} (多worker模式)"
             echo -e "  • 并发能力: ${BOLD}100+ 并发${NC}"
             echo -e "  • 特色: 最高性能，企业级扩展"
+            ;;
+        "windows_cuda")
+            echo -e "  • 推理引擎: ${BOLD}LlamaCpp${NC} (Windows CUDA 优化)"
+            echo -e "  • 服务器: ${BOLD}Waitress${NC} (Windows 专用)"
+            echo -e "  • 并发能力: ${BOLD}20-50 并发${NC}"
+            echo -e "  • 特色: Windows 原生支持，稳定性好"
+            ;;
+        "windows_cpu")
+            echo -e "  • 推理引擎: ${BOLD}LlamaCpp${NC} (Windows CPU)"
+            echo -e "  • 服务器: ${BOLD}Waitress${NC} (Windows 专用)"
+            echo -e "  • 并发能力: ${BOLD}5-15 并发${NC}"
+            echo -e "  • 特色: 零门槛，Windows 原生兼容"
             ;;
         *)
             echo -e "  • 推理引擎: ${BOLD}LlamaCpp${NC} (CPU 通用兼容)"

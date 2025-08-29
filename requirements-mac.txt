@@ -40,10 +40,15 @@ modelscope>=1.20.0
 asyncio-mqtt==0.14.1
 anyio==4.10.0
 
+# 模型安全存储
+safetensors>=0.4.0
+huggingface-hub>=0.17.0
+
 # 测试工具 (可选)
 pytest==8.3.4
 pytest-asyncio==0.24.0
 pytest-benchmark==4.0.0
+pytest-cov>=4.1.0
 
 # 开发工具 (可选)
 black==24.10.0
@@ -52,7 +57,10 @@ mypy==1.14.0
 
 # 生产部署
 supervisor==4.2.6  # 进程管理
-nginx-python==1.2.0  # Nginx配置
+waitress>=2.1.0    # 跨平台WSGI服务器
+
+# llama.cpp 作为后备引擎
+llama-cpp-python>=0.2.0
 
 # 注意事项:
 # 1. MLX只支持Apple Silicon，在Intel Mac上会回退到CPU

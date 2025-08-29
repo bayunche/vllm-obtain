@@ -44,6 +44,13 @@ sentencepiece>=0.2.0
 
 # HuggingFace集成
 huggingface-hub>=0.26.0
+safetensors>=0.4.0
+
+# ModelScope 中国镜像支持
+modelscope>=1.20.0
+
+# 可选: VLLM Windows支持 (实验性)
+# vllm>=0.6.0; platform_system == "Windows"
 
 # 异步支持
 asyncio-mqtt==0.14.1
@@ -53,6 +60,7 @@ anyio==4.10.0
 pytest==8.3.4
 pytest-asyncio==0.24.0
 pytest-benchmark==4.0.0
+pytest-cov>=4.1.0
 
 # 开发工具
 black==24.10.0

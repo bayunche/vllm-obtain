@@ -48,6 +48,10 @@ sentencepiece>=0.2.0
 # HuggingFace集成
 huggingface-hub>=0.26.0
 datasets>=3.2.0
+safetensors>=0.4.0
+
+# ModelScope 中国镜像支持
+modelscope>=1.20.0
 
 # 异步支持
 asyncio-mqtt==0.14.1
@@ -61,6 +65,7 @@ optimum>=1.24.0
 pytest==8.3.4
 pytest-asyncio==0.24.0
 pytest-benchmark==4.0.0
+pytest-cov>=4.1.0
 
 # 开发工具
 black==24.10.0
@@ -71,6 +76,7 @@ mypy==1.14.0
 supervisor==4.2.6
 redis==5.2.1  # 可选: 缓存系统
 celery==5.4.0  # 可选: 任务队列
+waitress>=2.1.0    # 跨平台WSGI服务器
 
 # Linux 系统特定
 prctl==1.8.2  # 进程控制
