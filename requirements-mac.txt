@@ -14,13 +14,13 @@ mlx-lm>=0.20.0
 # 配置和环境
 python-dotenv==1.0.1
 pydantic==2.10.6
-pydantic-settings==2.7.3
+pydantic-settings==2.7.0
 
 # 日志系统
 loguru==0.7.3
 
 # 系统监控
-psutil==6.2.1
+psutil==6.1.1
 
 # HTTP客户端
 requests==2.32.3
@@ -37,7 +37,7 @@ transformers>=4.45.0
 modelscope>=1.20.0
 
 # 异步支持
-asyncio-mqtt==0.14.1
+asyncio-mqtt==0.14.0
 anyio==4.10.0
 
 # 模型安全存储
@@ -56,7 +56,7 @@ isort==5.13.2
 mypy==1.14.0
 
 # 生产部署
-supervisor==4.2.6  # 进程管理
+supervisor==4.2.5  # 进程管理
 waitress>=2.1.0    # 跨平台WSGI服务器
 
 # llama.cpp 作为后备引擎
