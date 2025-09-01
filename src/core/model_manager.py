@@ -129,6 +129,24 @@ class ModelManager:
     async def _register_default_model(self):
         """注册默认模型"""
         default_model = self.config.default_model
+        
+        # 优先使用 model_dir 如果它指向具体的模型路径
+        if hasattr(self.config, 'model_dir') and self.config.model_dir:
+            model_path = Path(self.config.model_dir)
+            # 检查是否是具体的模型目录（包含config.json）
+            if (model_path / 'config.json').exists():
+                self.register_model(
+                    ModelConfig(
+                        name=default_model,
+                        path=str(model_path),
+                        auto_load=True,
+                        priority=1
+                    )
+                )
+                self.logger.info(f"已注册默认模型: {default_model} (路径: {model_path})")
+                return
+        
+        # 否则使用 model_base_path / default_model
         model_path = Path(self.config.model_base_path) / default_model
         
         if model_path.exists():

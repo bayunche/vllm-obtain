@@ -325,6 +325,7 @@ class CompatibilityTestReporter:
                 
                 # 创建推理请求
                 request = InferenceRequest(
+                    model_name="qwen-test",
                     prompt=prompt,
                     max_tokens=100,
                     temperature=0.7,
@@ -399,6 +400,7 @@ class CompatibilityTestReporter:
             requests = []
             for i in range(concurrent_requests):
                 request = InferenceRequest(
+                    model_name="qwen-test",
                     prompt=test_prompts[i],
                     max_tokens=80,
                     temperature=0.7
@@ -498,256 +500,256 @@ class CompatibilityTestReporter:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>跨平台兼容性测试报告</title>
     <style>
-        * {
+        * {{
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-        }
+        }}
         
-        body {
+        body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
-        }
+        }}
         
-        .container {
+        .container {{
             max-width: 1200px;
             margin: 0 auto;
             background: white;
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             overflow: hidden;
-        }
+        }}
         
-        .header {
+        .header {{
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 40px;
             text-align: center;
-        }
+        }}
         
-        .header h1 {
+        .header h1 {{
             font-size: 2.5rem;
             margin-bottom: 10px;
-        }
+        }}
         
-        .header p {
+        .header p {{
             opacity: 0.9;
             font-size: 1.1rem;
-        }
+        }}
         
-        .summary {
+        .summary {{
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
             padding: 30px;
             background: #f8f9fa;
             border-bottom: 1px solid #dee2e6;
-        }
+        }}
         
-        .summary-card {
+        .summary-card {{
             background: white;
             padding: 20px;
             border-radius: 10px;
             text-align: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
+        }}
         
-        .summary-card h3 {
+        .summary-card h3 {{
             color: #6c757d;
             font-size: 0.9rem;
             margin-bottom: 10px;
             text-transform: uppercase;
             letter-spacing: 1px;
-        }
+        }}
         
-        .summary-card .value {
+        .summary-card .value {{
             font-size: 2rem;
             font-weight: bold;
-        }
+        }}
         
-        .summary-card.passed .value { color: #28a745; }
-        .summary-card.failed .value { color: #dc3545; }
-        .summary-card.total .value { color: #007bff; }
-        .summary-card.warnings .value { color: #ffc107; }
+        .summary-card.passed .value {{ color: #28a745; }}
+        .summary-card.failed .value {{ color: #dc3545; }}
+        .summary-card.total .value {{ color: #007bff; }}
+        .summary-card.warnings .value {{ color: #ffc107; }}
         
-        .platform-info {
+        .platform-info {{
             padding: 30px;
             background: white;
             border-bottom: 1px solid #dee2e6;
-        }
+        }}
         
-        .platform-info h2 {
+        .platform-info h2 {{
             color: #343a40;
             margin-bottom: 20px;
             font-size: 1.5rem;
-        }
+        }}
         
-        .info-grid {
+        .info-grid {{
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 15px;
-        }
+        }}
         
-        .info-item {
+        .info-item {{
             display: flex;
             padding: 10px;
             background: #f8f9fa;
             border-radius: 5px;
-        }
+        }}
         
-        .info-label {
+        .info-label {{
             font-weight: bold;
             color: #6c757d;
             margin-right: 10px;
             min-width: 120px;
-        }
+        }}
         
-        .info-value {
+        .info-value {{
             color: #343a40;
-        }
+        }}
         
-        .test-results {
+        .test-results {{
             padding: 30px;
-        }
+        }}
         
-        .test-results h2 {
+        .test-results h2 {{
             color: #343a40;
             margin-bottom: 20px;
             font-size: 1.5rem;
-        }
+        }}
         
-        .test-item {
+        .test-item {{
             background: white;
             border: 1px solid #dee2e6;
             border-radius: 10px;
             margin-bottom: 20px;
             overflow: hidden;
             transition: all 0.3s ease;
-        }
+        }}
         
-        .test-item:hover {
+        .test-item:hover {{
             box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-        }
+        }}
         
-        .test-header {
+        .test-header {{
             padding: 20px;
             background: #f8f9fa;
             display: flex;
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
-        }
+        }}
         
-        .test-header.passed { background: #d4edda; }
-        .test-header.failed { background: #f8d7da; }
-        .test-header.warning { background: #fff3cd; }
+        .test-header.passed {{ background: #d4edda; }}
+        .test-header.failed {{ background: #f8d7da; }}
+        .test-header.warning {{ background: #fff3cd; }}
         
-        .test-name {
+        .test-name {{
             font-weight: bold;
             color: #343a40;
             font-size: 1.1rem;
-        }
+        }}
         
-        .test-status {
+        .test-status {{
             display: flex;
             align-items: center;
             gap: 10px;
-        }
+        }}
         
-        .status-badge {
+        .status-badge {{
             padding: 5px 15px;
             border-radius: 20px;
             font-size: 0.85rem;
             font-weight: bold;
             text-transform: uppercase;
-        }
+        }}
         
-        .status-badge.passed {
+        .status-badge.passed {{
             background: #28a745;
             color: white;
-        }
+        }}
         
-        .status-badge.failed {
+        .status-badge.failed {{
             background: #dc3545;
             color: white;
-        }
+        }}
         
-        .status-badge.warning {
+        .status-badge.warning {{
             background: #ffc107;
             color: #343a40;
-        }
+        }}
         
-        .test-duration {
+        .test-duration {{
             color: #6c757d;
             font-size: 0.9rem;
-        }
+        }}
         
-        .test-details {
+        .test-details {{
             padding: 20px;
             background: white;
             border-top: 1px solid #dee2e6;
             display: none;
-        }
+        }}
         
-        .test-details.show {
+        .test-details.show {{
             display: block;
-        }
+        }}
         
-        .test-message {
+        .test-message {{
             color: #495057;
             margin-bottom: 15px;
             padding: 10px;
             background: #f8f9fa;
             border-radius: 5px;
-        }
+        }}
         
-        .detail-list {
+        .detail-list {{
             list-style: none;
-        }
+        }}
         
-        .detail-list li {
+        .detail-list li {{
             padding: 8px 0;
             color: #495057;
             border-bottom: 1px solid #f8f9fa;
-        }
+        }}
         
-        .detail-list li:last-child {
+        .detail-list li:last-child {{
             border-bottom: none;
-        }
+        }}
         
-        .detail-list li:before {
+        .detail-list li:before {{
             content: '▸ ';
             color: #667eea;
             font-weight: bold;
             margin-right: 5px;
-        }
+        }}
         
-        .footer {
+        .footer {{
             padding: 20px;
             text-align: center;
             background: #f8f9fa;
             color: #6c757d;
-        }
+        }}
         
-        .success-rate {
+        .success-rate {{
             margin-top: 20px;
             padding: 20px;
             background: white;
             border-radius: 10px;
-        }
+        }}
         
-        .progress-bar {
+        .progress-bar {{
             width: 100%;
             height: 30px;
             background: #e9ecef;
             border-radius: 15px;
             overflow: hidden;
             position: relative;
-        }
+        }}
         
-        .progress-fill {
+        .progress-fill {{
             height: 100%;
             background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
             transition: width 1s ease;
@@ -756,21 +758,21 @@ class CompatibilityTestReporter:
             justify-content: center;
             color: white;
             font-weight: bold;
-        }
+        }}
         
-        @media (max-width: 768px) {
-            .header h1 {
+        @media (max-width: 768px) {{
+            .header h1 {{
                 font-size: 1.8rem;
-            }
+            }}
             
-            .summary {
+            .summary {{
                 grid-template-columns: 1fr 1fr;
-            }
+            }}
             
-            .info-grid {
+            .info-grid {{
                 grid-template-columns: 1fr;
-            }
-        }
+            }}
+        }}
     </style>
 </head>
 <body>
@@ -783,19 +785,19 @@ class CompatibilityTestReporter:
         <div class="summary">
             <div class="summary-card total">
                 <h3>测试总数</h3>
-                <div class="value">{total_tests}</div>
+                <div class="value">{{total_tests}}</div>
             </div>
             <div class="summary-card passed">
                 <h3>通过</h3>
-                <div class="value">{passed}</div>
+                <div class="value">{{passed}}</div>
             </div>
             <div class="summary-card failed">
                 <h3>失败</h3>
-                <div class="value">{failed}</div>
+                <div class="value">{{failed}}</div>
             </div>
             <div class="summary-card warnings">
                 <h3>警告</h3>
-                <div class="value">{warnings}</div>
+                <div class="value">{{warnings}}</div>
             </div>
         </div>
         
@@ -804,33 +806,33 @@ class CompatibilityTestReporter:
             <div class="info-grid">
                 <div class="info-item">
                     <span class="info-label">测试时间:</span>
-                    <span class="info-value">{test_time}</span>
+                    <span class="info-value">{{test_time}}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">操作系统:</span>
-                    <span class="info-value">{platform}</span>
+                    <span class="info-value">{{platform}}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Python版本:</span>
-                    <span class="info-value">{python_version}</span>
+                    <span class="info-value">{{python_version}}</span>
                 </div>
             </div>
             
             <div class="success-rate">
                 <h3>成功率</h3>
                 <div class="progress-bar">
-                    <div class="progress-fill" style="width: {success_rate}%">
-                        {success_rate}%
+                    <div class="progress-fill" style="width: {{success_rate}}%">
+                        {{success_rate}}%
                     </div>
                 </div>
             </div>
         </div>
         
-        {performance_section}
+        {{performance_section}}
         
         <div class="test-results">
             <h2>🧪 测试结果详情</h2>
-            {test_items}
+            {{test_items}}
         </div>
         
         <div class="footer">
@@ -840,18 +842,18 @@ class CompatibilityTestReporter:
     
     <script>
         // 点击展开/收起测试详情
-        document.querySelectorAll('.test-header').forEach(header => {
-            header.addEventListener('click', () => {
+        document.querySelectorAll('.test-header').forEach(header => {{
+            header.addEventListener('click', () => {{
                 const details = header.nextElementSibling;
                 details.classList.toggle('show');
-            });
-        });
+            }});
+        }});
         
         // 自动展开失败的测试
-        document.querySelectorAll('.test-header.failed').forEach(header => {
+        document.querySelectorAll('.test-header.failed').forEach(header => {{
             const details = header.nextElementSibling;
             details.classList.add('show');
-        });
+        }});
     </script>
 </body>
 </html>

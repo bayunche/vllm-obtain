@@ -31,6 +31,7 @@ class InferenceConfig(BaseSettings):
     default_model: str = Field(default="Qwen2.5-7B-Instruct", description="默认模型")
     model_base_path: str = Field(default="./models", description="模型基础路径")
     model_cache_dir: str = Field(default="./cache", description="模型缓存目录")
+    default_model_path: Optional[str] = Field(default=None, description="默认模型路径")
     
     # 硬件配置
     device_type: str = Field(default="auto", description="设备类型")
@@ -62,6 +63,52 @@ class InferenceConfig(BaseSettings):
     cache_size: int = Field(default=1000, description="缓存大小")
     request_timeout: int = Field(default=300, description="请求超时时间(秒)")
     max_concurrent_requests: int = Field(default=100, description="最大并发请求数")
+    
+    # MLX 特定配置
+    mlx_memory_fraction: float = Field(default=0.8, description="MLX内存使用比例")
+    mlx_precision: str = Field(default="float16", description="MLX计算精度")
+    
+    # 文件系统配置  
+    model_dir: str = Field(default="./models", description="模型目录或具体模型路径")
+    cache_dir: str = Field(default="./cache", description="缓存目录")
+    cache_ttl: int = Field(default=3600, description="缓存TTL(秒)")
+    
+    # Worker配置
+    worker_class: str = Field(default="gevent", description="Worker类")
+    worker_connections: int = Field(default=500, description="Worker连接数")
+    keep_alive: int = Field(default=2, description="保持连接时间(秒)")
+    
+    # 内存管理
+    memory_limit: int = Field(default=80, description="内存限制(%)")
+    enable_swap_protection: bool = Field(default=True, description="启用交换保护")
+    auto_cleanup_interval: int = Field(default=3600, description="自动清理间隔(秒)")
+    
+    # 日志扩展配置
+    log_dir: str = Field(default="./logs", description="日志目录")
+    enable_log_file: bool = Field(default=True, description="启用日志文件")
+    log_retention_days: int = Field(default=30, description="日志保留天数")
+    log_rotate_size: str = Field(default="100MB", description="日志轮转大小")
+    
+    # 安全配置
+    allowed_hosts: str = Field(default="127.0.0.1,localhost", description="允许的主机")
+    cors_origins: str = Field(default="*", description="CORS源")
+    api_key_required: bool = Field(default=False, description="是否需要API密钥")
+    
+    # 监控配置
+    enable_metrics: bool = Field(default=True, description="启用指标监控")
+    metrics_interval: int = Field(default=60, description="指标收集间隔(秒)")
+    
+    # Mac特定优化
+    use_system_malloc: bool = Field(default=True, description="使用系统malloc")
+    enable_memory_mapping: bool = Field(default=True, description="启用内存映射")
+    use_accelerate_framework: bool = Field(default=True, description="使用Accelerate框架")
+    use_apfs_snapshots: bool = Field(default=False, description="使用APFS快照")
+    disable_spotlight_indexing: bool = Field(default=True, description="禁用Spotlight索引")
+    
+    # 开发配置
+    flask_env: str = Field(default="production", description="Flask环境")
+    pythonpath: str = Field(default=".", description="Python路径")
+    tz: str = Field(default="Asia/Shanghai", description="时区")
     
     class Config:
         env_file = ".env"
