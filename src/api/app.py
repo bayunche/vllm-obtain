@@ -151,10 +151,10 @@ def create_app(config=None, **kwargs):
         }), 500
     
     # 注册路由
-    from .routes.openai_compat import openai_bp
+    from .routes.openai_complete import register_openai_v1_routes
     from .routes.management import management_bp
     
-    app.register_blueprint(openai_bp, url_prefix='/v1')
+    register_openai_v1_routes(app)
     app.register_blueprint(management_bp, url_prefix='/v1')
     
     # 健康检查端点
@@ -217,7 +217,11 @@ def run_async_in_thread(coro, loop):
     """在事件循环线程中运行协程"""
     if loop and loop.is_running():
         future = asyncio.run_coroutine_threadsafe(coro, loop)
-        return future.result(timeout=30)
+        # 使用配置的请求超时时间，而不是硬编码的30秒
+        from ..utils import get_config
+        config = get_config()
+        timeout = config.request_timeout if hasattr(config, 'request_timeout') else 300
+        return future.result(timeout=timeout)
     else:
         raise RuntimeError("事件循环未运行")
 

@@ -21,6 +21,7 @@ class MlxEngine(InferenceEngine):
         super().__init__(config)
         self.mlx_models = {}  # 存储加载的 MLX 模型实例
         self.tokenizers = {}  # 存储对应的分词器
+        self._inference_locks = {}  # 为每个模型创建推理锁，避免并发问题
     
     async def initialize(self) -> bool:
         """初始化 MLX 引擎"""
@@ -101,6 +102,7 @@ class MlxEngine(InferenceEngine):
             # 存储模型和分词器
             self.mlx_models[model_name] = model
             self.tokenizers[model_name] = tokenizer
+            self._inference_locks[model_name] = asyncio.Lock()  # 为该模型创建推理锁
             
             # 更新模型信息
             model_info.status = ModelStatus.LOADED
@@ -138,6 +140,8 @@ class MlxEngine(InferenceEngine):
                 del self.mlx_models[model_name]
             if model_name in self.tokenizers:
                 del self.tokenizers[model_name]
+            if model_name in self._inference_locks:
+                del self._inference_locks[model_name]
             
             # 强制内存回收
             import gc
@@ -159,67 +163,72 @@ class MlxEngine(InferenceEngine):
         if not self.is_model_loaded(request.model_name):
             raise InferenceError(f"模型未加载: {request.model_name}")
         
-        try:
-            model = self.mlx_models[request.model_name]
-            tokenizer = self.tokenizers[request.model_name]
-            prompt = request.to_prompt()
-            
-            self.logger.debug(f"开始MLX推理: {request.model_name} - {prompt[:100]}...")
-            
-            # 在线程池中执行推理
-            loop = asyncio.get_event_loop()
-            
-            def _generate():
-                start_time = time.time()
+        # 获取该模型的推理锁，确保同一模型的推理请求串行执行
+        if request.model_name not in self._inference_locks:
+            self._inference_locks[request.model_name] = asyncio.Lock()
+        
+        async with self._inference_locks[request.model_name]:
+            try:
+                model = self.mlx_models[request.model_name]
+                tokenizer = self.tokenizers[request.model_name]
+                prompt = request.to_prompt()
                 
-                # 使用基础的MLX generate函数（不带参数）
-                response = self.mlx_generate(
-                    model, 
-                    tokenizer, 
-                    prompt,
-                    max_tokens=request.max_tokens,
-                    verbose=False
+                self.logger.debug(f"开始MLX推理: {request.model_name} - {prompt[:100]}...")
+                
+                # 在线程池中执行推理
+                loop = asyncio.get_event_loop()
+                
+                def _generate():
+                    start_time = time.time()
+                    
+                    # 使用基础的MLX generate函数（不带参数）
+                    response = self.mlx_generate(
+                        model, 
+                        tokenizer, 
+                        prompt,
+                        max_tokens=request.max_tokens,
+                        verbose=False
+                    )
+                    
+                    inference_time = time.time() - start_time
+                    return response, inference_time
+                
+                response_text, inference_time = await loop.run_in_executor(None, _generate)
+                
+                # 计算token统计
+                prompt_tokens = len(tokenizer.encode(prompt))
+                # 只计算生成的部分
+                generated_text = response_text[len(prompt):] if response_text.startswith(prompt) else response_text
+                completion_tokens = len(tokenizer.encode(generated_text))
+                total_tokens = prompt_tokens + completion_tokens
+                
+                tokens_per_second = completion_tokens / inference_time if inference_time > 0 else 0
+                
+                response = InferenceResponse(
+                    model_name=request.model_name,
+                    text=generated_text,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    inference_time=inference_time,
+                    tokens_per_second=tokens_per_second,
+                    request_id=request.request_id
                 )
                 
-                inference_time = time.time() - start_time
-                return response, inference_time
-            
-            response_text, inference_time = await loop.run_in_executor(None, _generate)
-            
-            # 计算token统计
-            prompt_tokens = len(tokenizer.encode(prompt))
-            # 只计算生成的部分
-            generated_text = response_text[len(prompt):] if response_text.startswith(prompt) else response_text
-            completion_tokens = len(tokenizer.encode(generated_text))
-            total_tokens = prompt_tokens + completion_tokens
-            
-            tokens_per_second = completion_tokens / inference_time if inference_time > 0 else 0
-            
-            response = InferenceResponse(
-                model_name=request.model_name,
-                text=generated_text,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=total_tokens,
-                inference_time=inference_time,
-                tokens_per_second=tokens_per_second,
-                request_id=request.request_id
-            )
-            
-            # 记录推理日志
-            self.logger.log_inference(
-                model_name=request.model_name,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                inference_time=inference_time,
-                request_id=request.request_id
-            )
-            
-            return response
-            
-        except Exception as e:
-            self.logger.error(f"MLX推理失败: {request.model_name} - {e}")
-            raise InferenceError(str(e), request.model_name)
+                # 记录推理日志
+                self.logger.log_inference(
+                    model_name=request.model_name,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    inference_time=inference_time,
+                    request_id=request.request_id
+                )
+                
+                return response
+                
+            except Exception as e:
+                self.logger.error(f"MLX推理失败: {request.model_name} - {e}")
+                raise InferenceError(str(e), request.model_name)
     
     async def generate_stream(self, request: InferenceRequest) -> AsyncGenerator[str, None]:
         """流式推理生成"""

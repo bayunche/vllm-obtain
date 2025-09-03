@@ -29,11 +29,11 @@ print_header() { echo -e "${CYAN}${BOLD}$1${NC}"; }
 check_venv() {
     if [[ "$VIRTUAL_ENV" != "" ]]; then
         print_success "虚拟环境已激活"
-        PYTHON_CMD="python"
+        PYTHON_CMD="$VIRTUAL_ENV/bin/python"
     elif [[ -d "venv" ]]; then
         print_info "激活虚拟环境..."
         source venv/bin/activate
-        PYTHON_CMD="python"
+        PYTHON_CMD="./venv/bin/python"
         print_success "虚拟环境已激活"
     else
         print_info "使用系统 Python"

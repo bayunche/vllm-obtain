@@ -130,16 +130,21 @@ def check_dependencies():
     
     # 检查必需的包
     required_packages = [
-        'flask', 'flask_cors', 'loguru', 'pydantic', 
-        'python-dotenv', 'psutil', 'requests'
+        ('flask', 'flask'), 
+        ('flask-cors', 'flask_cors'), 
+        ('loguru', 'loguru'), 
+        ('pydantic', 'pydantic'),
+        ('python-dotenv', 'dotenv'), 
+        ('psutil', 'psutil'), 
+        ('requests', 'requests')
     ]
     
     missing_packages = []
-    for package in required_packages:
+    for package_name, import_name in required_packages:
         try:
-            __import__(package.replace('-', '_'))
+            __import__(import_name)
         except ImportError:
-            missing_packages.append(package)
+            missing_packages.append(package_name)
     
     if missing_packages:
         print(f"❌ 缺少必需的包: {', '.join(missing_packages)}")

@@ -22,12 +22,22 @@ except ImportError:
     MlxEngine = None
     MLX_AVAILABLE = False
 
+# 尝试导入 MLX-VLM 引擎（macOS多模态）
+try:
+    from .mlx_vlm_engine import MLXVLMEngine
+    MLX_VLM_AVAILABLE = True
+except ImportError:
+    MLXVLMEngine = None
+    MLX_VLM_AVAILABLE = False
+
 __all__ = [
     'LlamaCppEngine',
     'VllmEngine',
     'MlxEngine',
+    'MLXVLMEngine',
     'VLLM_AVAILABLE',
-    'MLX_AVAILABLE'
+    'MLX_AVAILABLE',
+    'MLX_VLM_AVAILABLE'
 ]
 
 
@@ -36,7 +46,7 @@ def create_engine(engine_type: str, config):
     根据引擎类型创建推理引擎实例
     
     Args:
-        engine_type: 引擎类型 (llama_cpp, vllm, mlx)
+        engine_type: 引擎类型 (llama_cpp, vllm, mlx, mlx_vlm)
         config: 引擎配置
         
     Returns:
@@ -60,6 +70,18 @@ def create_engine(engine_type: str, config):
             logger.warning("MLX 引擎不可用，自动回退到 llama.cpp 引擎")
             return LlamaCppEngine(config)
         return MlxEngine(config)
+    elif engine_type == "mlx_vlm":
+        if not MLX_VLM_AVAILABLE or MLXVLMEngine is None:
+            # 尝试回退到普通 MLX 引擎
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning("MLX-VLM 引擎不可用，尝试使用普通 MLX 引擎")
+            if MLX_AVAILABLE and MlxEngine is not None:
+                return MlxEngine(config)
+            else:
+                logger.warning("MLX 引擎也不可用，回退到 llama.cpp 引擎")
+                return LlamaCppEngine(config)
+        return MLXVLMEngine(config)
     else:
         # 未知引擎类型，默认使用 llama.cpp
         import logging

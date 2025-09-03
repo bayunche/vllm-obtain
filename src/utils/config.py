@@ -32,6 +32,7 @@ class InferenceConfig(BaseSettings):
     model_base_path: str = Field(default="./models", description="模型基础路径")
     model_cache_dir: str = Field(default="./cache", description="模型缓存目录")
     default_model_path: Optional[str] = Field(default=None, description="默认模型路径")
+    max_sequence_length: int = Field(default=128000, description="最大序列长度(上下文长度)")
     
     # 硬件配置
     device_type: str = Field(default="auto", description="设备类型")
@@ -61,7 +62,7 @@ class InferenceConfig(BaseSettings):
     # 性能优化配置
     enable_caching: bool = Field(default=True, description="启用缓存")
     cache_size: int = Field(default=1000, description="缓存大小")
-    request_timeout: int = Field(default=300, description="请求超时时间(秒)")
+    request_timeout: int = Field(default=600, description="请求超时时间(秒)")
     max_concurrent_requests: int = Field(default=100, description="最大并发请求数")
     
     # MLX 特定配置

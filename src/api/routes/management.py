@@ -146,10 +146,25 @@ def load_model():
         # 注册并加载模型
         from ...core.model_manager import ModelConfig
         
+        # 确定引擎类型：优先级为 用户指定 > 现有配置 > 自动检测
+        engine_type = data.get('engine_type')
+        if not engine_type:
+            # 检查是否已有注册的模型配置
+            existing_config = manager.model_configs.get(model_name)
+            if existing_config and existing_config.engine_type:
+                # 保留现有的引擎类型
+                engine_type = existing_config.engine_type
+                print(f"保留现有模型配置的引擎类型: {engine_type}")
+            else:
+                # 自动检测引擎类型
+                from pathlib import Path
+                engine_type = manager._detect_model_engine_type(Path(model_path))
+                print(f"自动检测到引擎类型: {engine_type}")
+        
         model_config = ModelConfig(
             name=model_name,
             path=model_path,
-            engine_type=data.get('engine_type'),
+            engine_type=engine_type,
             auto_load=True,
             priority=data.get('priority', 1),
             max_context_length=data.get('max_context_length'),

@@ -86,6 +86,10 @@ class InferenceRequest:
     request_id: Optional[str] = None
     user: Optional[str] = None
     
+    # 多模态支持
+    multimodal_data: Optional[List[Dict[str, Any]]] = None  # 多模态内容列表
+    image_path: Optional[str] = None  # 图片文件路径（向后兼容）
+    
     def to_prompt(self) -> str:
         """转换为推理提示词"""
         if self.messages:

@@ -44,6 +44,13 @@ class ConfigurationError(InferenceEngineError):
     pass
 
 
+class EngineInitError(InferenceEngineError):
+    """引擎初始化异常"""
+    def __init__(self, engine_name: str, message: str = None):
+        self.engine_name = engine_name
+        super().__init__(message or f"引擎初始化失败: {engine_name}")
+
+
 class EngineNotSupportedError(InferenceEngineError):
     """引擎不支持异常"""
     def __init__(self, engine_name: str, platform: str):

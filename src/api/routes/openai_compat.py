@@ -11,7 +11,8 @@ from typing import Dict, Any, List
 
 from ...core.inference_engine import InferenceRequest
 from ...core.exceptions import ModelNotFoundError, InferenceError
-from ...utils import api_monitor
+from ...utils import api_monitor, get_config
+from ...utils.message_processor import validate_and_process_messages, process_message_content
 from ..app import run_async_in_thread
 
 openai_bp = Blueprint('openai', __name__)
@@ -163,9 +164,18 @@ def chat_completions():
         if not isinstance(messages, list) or len(messages) == 0:
             return create_error_response("messages 必须是非空数组", "invalid_request_error")
         
-        # 将messages转换为prompt格式
+        # 获取配置
+        config = get_config()
+        
+        # 处理消息（包括base64解码和token限制）
+        try:
+            processed_messages = validate_and_process_messages(messages, config)
+        except ValueError as e:
+            return create_error_response(str(e), "invalid_request_error")
+        
+        # 将处理后的messages转换为prompt格式
         prompt_parts = []
-        for message in messages:
+        for message in processed_messages:
             role = message.get("role", "user")
             content = message.get("content", "")
             if role == "system":
@@ -177,6 +187,9 @@ def chat_completions():
         
         prompt_parts.append("Assistant:")
         prompt = "\n".join(prompt_parts)
+        
+        # 记录处理信息
+        current_app.config['LOGGER'].debug(f"处理了{len(processed_messages)}条消息，原始{len(messages)}条")
         
         # 构建推理请求
         request_obj = InferenceRequest(
@@ -231,8 +244,11 @@ def chat_completions():
     except InferenceError as e:
         return create_error_response(str(e), "server_error", status_code=500)
     except Exception as e:
-        current_app.config['LOGGER'].error(f"聊天补全失败: {e}")
-        return create_error_response(str(e), "server_error", status_code=500)
+        import traceback
+        error_msg = str(e) if str(e) else f"{type(e).__name__}: 未知错误"
+        current_app.config['LOGGER'].error(f"聊天补全失败: {error_msg}")
+        current_app.config['LOGGER'].debug(f"详细错误信息: {traceback.format_exc()}")
+        return create_error_response(error_msg, "server_error", status_code=500)
 
 
 def handle_stream_chat_completion(manager, request_obj, data):
@@ -355,10 +371,19 @@ def completions():
         model_name = data['model']
         prompt = data['prompt']
         
+        # 获取配置
+        config = get_config()
+        
+        # 处理prompt（可能是base64编码）
+        max_tokens = data.get('max_tokens', 100)
+        # 预留一些token给输出
+        max_input_tokens = config.max_sequence_length - max_tokens - 100
+        processed_prompt = process_message_content(prompt, max_input_tokens)
+        
         # 构建推理请求
         request_obj = InferenceRequest(
             model_name=model_name,
-            prompt=prompt,
+            prompt=processed_prompt,
             max_tokens=data.get('max_tokens', 100),
             temperature=data.get('temperature', 0.7),
             top_p=data.get('top_p', 0.9),

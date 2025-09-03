@@ -5,11 +5,32 @@
 """
 
 import sys
+import os
 import platform
 import importlib
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Tuple
+
+# 自动检测并使用虚拟环境
+def ensure_venv():
+    """确保使用虚拟环境中的Python"""
+    script_dir = Path(__file__).parent
+    venv_path = script_dir / "venv"
+    
+    # 如果已经在虚拟环境中，直接返回
+    if os.environ.get('VIRTUAL_ENV'):
+        return
+    
+    # 如果存在venv目录且不在虚拟环境中，重新启动脚本
+    if venv_path.exists() and not os.environ.get('VIRTUAL_ENV'):
+        venv_python = venv_path / "bin" / "python"
+        if venv_python.exists():
+            print("🔄 切换到虚拟环境...")
+            os.execv(str(venv_python), [str(venv_python)] + sys.argv)
+
+# 在导入其他模块前先检查虚拟环境
+ensure_venv()
 
 
 class DependencyChecker:

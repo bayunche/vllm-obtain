@@ -15,11 +15,13 @@ requests>=2.31.0
 
 # OpenAI 兼容性
 openai>=1.0.0
+tiktoken>=0.7.0
 
 # 数据处理和科学计算
 numpy>=1.24.0
 torch>=2.1.0
 transformers>=4.35.0
+python-dotenv
 
 # 跨平台推理引擎 (条件安装)
 vllm>=0.2.0; sys_platform != "darwin"
@@ -35,3 +37,4 @@ safetensors>=0.4.0
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
 pytest-cov>=4.1.0
+

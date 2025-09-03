@@ -76,7 +76,7 @@ class ModelManager:
                 device_type=self.config.device_type,
                 max_gpu_memory=self.config.max_gpu_memory,
                 max_cpu_threads=self.config.max_cpu_threads,
-                max_sequence_length=self.config.max_concurrent_models,
+                max_sequence_length=self.config.max_sequence_length,
                 enable_streaming=True
             )
             
@@ -111,7 +111,31 @@ class ModelManager:
             
             self.engines[engine_type] = main_engine
             
-            # 注册默认模型
+            # 如果有MLX引擎，也尝试初始化MLX-VLM引擎用于多模态
+            if engine_type == "mlx":
+                try:
+                    self.logger.info("尝试初始化 MLX-VLM 引擎用于多模态支持")
+                    vlm_config = EngineConfig(
+                        engine_type="mlx_vlm",
+                        device_type=self.config.device_type,
+                        max_gpu_memory=self.config.max_gpu_memory,
+                        max_cpu_threads=self.config.max_cpu_threads,
+                        max_sequence_length=self.config.max_sequence_length,
+                        enable_streaming=True
+                    )
+                    vlm_engine = create_engine("mlx_vlm", vlm_config)
+                    if await vlm_engine.initialize():
+                        self.engines["mlx_vlm"] = vlm_engine
+                        self.logger.info("MLX-VLM 引擎初始化成功，支持多模态推理")
+                    else:
+                        self.logger.warning("MLX-VLM 引擎初始化失败，仅支持文本模型")
+                except Exception as e:
+                    self.logger.warning(f"MLX-VLM 引擎创建失败: {e}")
+            
+            # 自动发现并注册所有模型
+            await self._discover_and_register_all_models()
+            
+            # 注册默认模型（如果未被自动发现）
             if self.config.default_model:
                 await self._register_default_model()
             
@@ -161,6 +185,140 @@ class ModelManager:
             self.logger.info(f"已注册默认模型: {default_model}")
         else:
             self.logger.warning(f"默认模型路径不存在: {model_path}")
+    
+    async def _discover_and_register_all_models(self):
+        """自动发现并注册所有可用模型"""
+        self.logger.info("开始自动发现模型...")
+        
+        if not hasattr(self.config, 'model_base_path') or not self.config.model_base_path:
+            self.logger.warning("未设置 model_base_path，跳过自动发现")
+            return
+        
+        models_path = Path(self.config.model_base_path)
+        if not models_path.exists():
+            self.logger.warning(f"模型基础路径不存在: {models_path}")
+            return
+        
+        discovered_count = 0
+        
+        # 扫描所有模型目录
+        for model_dir in models_path.iterdir():
+            if not model_dir.is_dir():
+                continue
+                
+            # 检查是否包含config.json (直接模型目录)
+            if (model_dir / 'config.json').exists():
+                model_name = model_dir.name
+                if model_name not in self.model_configs:
+                    # 检测模型类型
+                    engine_type = self._detect_model_engine_type(model_dir)
+                    self.register_model(
+                        ModelConfig(
+                            name=model_name,
+                            path=str(model_dir),
+                            engine_type=engine_type,  # 指定推理引擎类型
+                            auto_load=False,  # 不自动加载，需要时再加载
+                            priority=discovered_count + 2  # 默认模型优先级为1
+                        )
+                    )
+                    discovered_count += 1
+                    self.logger.info(f"自动发现模型: {model_name} (引擎: {engine_type})")
+            
+            # 检查子目录(ModelScope缓存结构)
+            else:
+                for config_file in model_dir.rglob('config.json'):
+                    parent_dir = config_file.parent
+                    # 使用顶层目录名作为模型名
+                    model_name = model_dir.name
+                    if model_name not in self.model_configs:
+                        # 检测模型类型
+                        engine_type = self._detect_model_engine_type(parent_dir)
+                        self.register_model(
+                            ModelConfig(
+                                name=model_name,
+                                path=str(parent_dir),
+                                engine_type=engine_type,
+                                auto_load=False,
+                                priority=discovered_count + 2
+                            )
+                        )
+                        discovered_count += 1
+                        self.logger.info(f"自动发现模型: {model_name} (ModelScope结构, 引擎: {engine_type})")
+                        break  # 只取第一个匹配的config.json
+        
+        self.logger.info(f"自动发现完成，共注册 {discovered_count} 个模型")
+    
+    def _detect_model_engine_type(self, model_path: Path) -> str:
+        """检测模型类型并返回合适的引擎类型"""
+        import json
+        
+        config_path = model_path / "config.json"
+        if not config_path.exists():
+            self.logger.debug(f"配置文件不存在: {config_path}")
+            return None  # 使用默认引擎
+        
+        try:
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+            
+            model_type = config.get("model_type", "").lower()
+            architectures = config.get("architectures", [])
+            
+            self.logger.debug(f"模型检测: 路径={model_path}, 类型={model_type}, 架构={architectures}")
+            
+            # 检查是否是视觉语言模型
+            is_vlm = False
+            
+            # 检查模型类型
+            vlm_keywords = ["vlm", "vision", "image", "visual", "multimodal", "moe"]
+            for keyword in vlm_keywords:
+                if keyword in model_type:
+                    is_vlm = True
+                    self.logger.debug(f"通过关键词 '{keyword}' 检测到多模态模型")
+                    break
+            
+            # 检查架构
+            if not is_vlm:
+                for arch in architectures:
+                    arch_lower = arch.lower()
+                    for keyword in vlm_keywords:
+                        if keyword in arch_lower:
+                            is_vlm = True
+                            self.logger.debug(f"通过架构 '{arch}' 中的关键词 '{keyword}' 检测到多模态模型")
+                            break
+            
+            # 特殊模型检测
+            if "glm" in model_type and ("4v" in model_type or "4.5v" in model_type.lower()):
+                is_vlm = True
+                self.logger.debug(f"通过GLM-4V特殊检测识别为多模态模型: {model_type}")
+            
+            # 检查是否有视觉相关配置
+            if not is_vlm:
+                if "vision_config" in config or "image_size" in config:
+                    is_vlm = True
+                    self.logger.debug("通过视觉配置检测到多模态模型")
+            
+            # 检查是否有预处理器配置（通常表示多模态）
+            if not is_vlm:
+                preprocessor_config = model_path / "preprocessor_config.json"
+                video_config = model_path / "video_preprocessor_config.json"
+                if preprocessor_config.exists() or video_config.exists():
+                    is_vlm = True
+                    self.logger.debug("通过预处理器配置检测到多模态模型")
+            
+            # 根据检测结果选择引擎
+            if is_vlm:
+                # 多模态模型使用 MLX-VLM
+                self.logger.info(f"检测到多模态模型: {model_type} -> 使用 mlx_vlm 引擎")
+                return "mlx_vlm"
+            else:
+                # 纯文本模型使用 MLX
+                self.logger.info(f"检测到文本模型: {model_type} -> 使用 mlx 引擎")
+                return "mlx"
+        
+        except Exception as e:
+            self.logger.warning(f"检测模型类型失败: {e}")
+            return None  # 使用默认引擎
     
     def register_model(self, model_config: ModelConfig):
         """注册模型配置"""
@@ -214,8 +372,26 @@ class ModelManager:
             
             model_config = self.model_configs[model_name]
             
+            # 调试信息：显示模型配置
+            self.logger.info(f"模型配置调试 - 模型: {model_name}, engine_type: {model_config.engine_type}")
+            
             # 确定使用的引擎
-            engine_type = model_config.engine_type or list(self.engines.keys())[0]
+            if model_config.engine_type:
+                engine_type = model_config.engine_type
+                self.logger.info(f"使用指定引擎: {engine_type} 加载模型: {model_name}")
+            else:
+                # 如果没有指定引擎类型，使用默认引擎
+                engine_type = list(self.engines.keys())[0]
+                self.logger.info(f"使用默认引擎: {engine_type} 加载模型: {model_name} (model_config.engine_type={model_config.engine_type})")
+            
+            # 确保指定的引擎存在
+            available_engines = list(self.engines.keys())
+            self.logger.info(f"当前可用引擎: {available_engines}")
+            if engine_type not in self.engines:
+                self.logger.warning(f"指定的引擎 {engine_type} 不存在，使用默认引擎。可用引擎: {available_engines}")
+                engine_type = available_engines[0]
+            
+            self.logger.info(f"最终选择引擎: {engine_type} 用于模型: {model_name}")
             
             if engine_type not in self.engines:
                 # 创建新引擎
